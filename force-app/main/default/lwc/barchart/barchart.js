@@ -1,0 +1,91 @@
+import { LightningElement,wire } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { loadScript } from 'lightning/platformResourceLoader'; 
+import chartjs from '@salesforce/resourceUrl/ChartJS'; 
+import getOppsByStage from '@salesforce/apex/DataProvider.getOppsByStage'; 
+
+export default class BarChart extends LightningElement {
+
+    chartjs; 
+    isChartInit; 
+
+    @wire(getOppsByStage)
+    getOpps({data,error}){
+        if(data){
+            for(var key in data){
+                this.updateOpps(data[key].label, data[key].count); 
+            }
+        }else if(error){
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title : 'Error occured in getOpps ', 
+                    message : error.message,
+                    variant : 'error'
+                })
+            )
+        }
+    }
+
+    renderedCallback(){
+        if(this.isChartInit){
+            return; 
+        }
+        this.isChartInit = true; 
+
+        Promise.all([loadScript(this,chartjs)])
+        .then(()=>{
+            const ctx = this.template.querySelector('canvas.barchart').getContext('2d'); 
+            this.chart = new window.Chart(ctx,this.config); 
+            }            
+        ).catch(error => {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title : 'Error occured in getOpps ', 
+                    message : error.message,
+                    variant : 'error'
+                })
+            )
+        })
+        
+    }
+
+    config = {
+        type: 'bar',
+          data: {
+            labels: [],
+            datasets: [{
+                label : 'Sample Dataset',
+                data: [],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.2)',
+                    'rgba(54, 162, 235, 0.2)',
+                    'rgba(255, 206, 86, 0.2)',
+                    'rgba(75, 192, 192, 0.2)',
+                    'rgba(153, 102, 255, 0.2)',
+                    'rgba(255, 159, 64, 0.2)',
+                    'lightred',
+                    'lightgreen',
+                    'lightblue'
+                ],
+            }]
+        },
+        options: {
+            responsive : true, 
+            /*scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero:true
+                    }
+                }]
+            }*/
+        }
+    }
+
+    updateOpps(label,total){   
+        this.chart.data.labels.push(label); 
+        this.chart.data.datasets.forEach(dt => {
+            dt.data.push(total); 
+        })
+        this.chart.update(); 
+    }
+}
